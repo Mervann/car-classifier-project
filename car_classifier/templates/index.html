@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Araba Gövde Tipi Sınıflandırıcı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:        #0a0e1a;
+    --bg-1:        #111827;
+    --bg-2:        #1f2937;
+    --line:        #2a3548;
+    --accent:      #00d9a3;
+    --accent-2:    #6366f1;
+    --warn:        #f59e0b;
+    --text:        #e5e7eb;
+    --text-dim:    #9ca3af;
+    --text-faint:  #6b7280;
+    --shadow:      0 20px 60px rgba(0,0,0,.45);
+    --radius:      14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 800px at 80% -10%, rgba(99,102,241,.15), transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, rgba(0,217,163,.12), transparent 55%),
+      var(--bg-0);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px 60px;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background pattern */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* ----------- HEADER ----------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 36px; padding: 0 8px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .logo {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 20px;
+    color: var(--bg-0);
+    box-shadow: 0 8px 24px rgba(0,217,163,.35);
+  }
+  .brand h1 {
+    font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .brand p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-faint); margin-top: 2px;
+    letter-spacing: 0.04em;
+  }
+  .status {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-dim);
+    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(31,41,55,.55); backdrop-filter: blur(6px);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+         box-shadow: 0 0 12px var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  /* ----------- GRID ----------- */
+  .grid {
+    display: grid; gap: 24px;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: linear-gradient(180deg, rgba(31,41,55,.85), rgba(17,24,39,.85));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .card-header {
+    padding: 18px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .card-body { padding: 22px; }
+
+  /* ----------- UPLOAD ----------- */
+  .dropzone {
+    border: 2px dashed var(--line);
+    border-radius: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s ease;
+    background: rgba(10,14,26,.4);
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: rgba(0,217,163,.06);
+    transform: translateY(-1px);
+  }
+  .dz-icon {
+    width: 56px; height: 56px; margin: 0 auto 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(0,217,163,.25), rgba(99,102,241,.25));
+    display: grid; place-items: center;
+    border: 1px solid var(--line);
+  }
+  .dz-icon svg { width: 26px; height: 26px; stroke: var(--accent); }
+  .dz-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .dz-sub { font-size: 12px; color: var(--text-faint);
+            font-family: 'JetBrains Mono', monospace; }
+  #file-input { display: none; }
+
+  .preview-wrap {
+    margin-top: 18px; border-radius: 10px; overflow: hidden;
+    border: 1px solid var(--line);
+    background: #000;
+    aspect-ratio: 16 / 10;
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .preview-wrap img { width: 100%; height: 100%; object-fit: contain; }
+  .preview-empty {
+    color: var(--text-faint); font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; letter-spacing: 0.06em;
+  }
+
+  .actions {
+    margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .btn {
+    flex: 1; min-width: 140px;
+    padding: 14px 18px; border: 0; border-radius: 10px;
+    font-family: inherit; font-weight: 600; font-size: 14px;
+    cursor: pointer; transition: all .2s ease;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #00b389);
+    color: var(--bg-0);
+    box-shadow: 0 8px 24px rgba(0,217,163,.35);
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; box-shadow:none; }
+  .btn-ghost {
+    background: transparent; color: var(--text-dim);
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.04); color: var(--text); }
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: var(--bg-0);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ----------- RESULT PANE ----------- */
+  .result-empty {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  }
+  .result-empty svg { width: 48px; height: 48px; margin: 0 auto 12px;
+                      stroke: var(--text-faint); opacity: .5; }
+  .verdict {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding-bottom: 18px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .verdict-label {
+    font-size: 11px; color: var(--text-faint); letter-spacing: 0.14em;
+    text-transform: uppercase; margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .verdict-class {
+    font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .verdict-confidence {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; font-weight: 600; color: var(--accent); text-align: right;
+  }
+  .verdict-confidence small { display: block; font-size: 10px;
+    color: var(--text-faint); margin-top: 2px; letter-spacing: 0.1em; }
+
+  .timing {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-faint); margin-bottom: 14px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .timing span { display: inline-flex; gap: 4px; }
+  .timing b { color: var(--accent); font-weight: 600; }
+
+  /* ----------- BAR CHART ----------- */
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 56px;
+    align-items: center; gap: 12px;
+  }
+  .bar-name {
+    font-size: 12px; color: var(--text-dim);
+    font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bar-row.winner .bar-name { color: var(--text); font-weight: 600; }
+  .bar-track {
+    height: 8px; background: rgba(255,255,255,.05); border-radius: 999px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-2), #818cf8);
+    border-radius: 999px;
+    transition: width .8s cubic-bezier(.4,0,.2,1);
+    width: 0;
+  }
+  .bar-row.winner .bar-fill {
+    background: linear-gradient(90deg, var(--accent), #5eead4);
+    box-shadow: 0 0 12px rgba(0,217,163,.5);
+  }
+  .bar-pct {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-dim); text-align: right;
+  }
+  .bar-row.winner .bar-pct { color: var(--accent); font-weight: 600; }
+
+  /* ----------- FOOTER ----------- */
+  footer {
+    margin-top: 28px; padding: 16px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-faint); text-align: center; letter-spacing: 0.06em;
+  }
+
+  .error {
+    margin-top: 14px; padding: 12px 14px;
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.35);
+    border-radius: 8px; color: var(--warn); font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="logo">CB</div>
+      <div>
+        <h1>Car Body Classifier</h1>
+        <p>MobileNetV3 · 8 classes · Kocaeli Üniversitesi</p>
+      </div>
+    </div>
+    <div class="status">
+      <div class="dot"></div><span id="status-text">model · ready</span>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ SOL: UPLOAD ============ -->
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">01 · Görüntü Yükleme</span>
+      </div>
+      <div class="card-body">
+        <label for="file-input" id="dropzone" class="dropzone">
+          <div class="dz-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div class="dz-title">Görüntüyü sürükle-bırak ya da tıkla</div>
+          <div class="dz-sub">JPG · PNG · WEBP — max 16 MB</div>
+          <input id="file-input" type="file" accept="image/*">
+        </label>
+
+        <div class="preview-wrap" id="preview-wrap">
+          <span class="preview-empty" id="preview-empty">Önizleme alanı</span>
+          <img id="preview-img" style="display:none" alt="preview">
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="predict-btn" disabled>
+            <span id="btn-label">Tahmin Yap</span>
+          </button>
+          <button class="btn btn-ghost" id="reset-btn">Temizle</button>
+        </div>
+
+        <div id="error-box" class="error" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- ============ SAĞ: RESULT ============ -->
+    <section class="card">
+      <div class="card-header">
+        <span class="card-title">02 · Tahmin Sonucu</span>
+      </div>
+      <div class="card-body">
+
+        <div id="result-empty" class="result-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <div>Henüz tahmin yapılmadı.</div>
+          <div style="margin-top:4px;">Bir görüntü yükle ve "Tahmin Yap"a bas.</div>
+        </div>
+
+        <div id="result-body" style="display:none">
+          <div class="verdict">
+            <div>
+              <div class="verdict-label">Predicted Class</div>
+              <div class="verdict-class" id="r-class">—</div>
+            </div>
+            <div>
+              <div class="verdict-confidence" id="r-conf">—</div>
+              <small>CONFIDENCE</small>
+            </div>
+          </div>
+
+          <div class="timing">
+            <span>inference: <b id="r-time">— ms</b></span>
+            <span>project_label: <b id="r-plabel">—</b></span>
+          </div>
+
+          <div class="bars" id="bars"></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    Yazılım Laboratuvarı II · Proje III · {{ class_names | length }} sınıf · 224×224 input
+  </footer>
+</div>
+
+<script>
+  // Sunucudan gelen sınıf isimleri (Türkçe gösterim) ve klasör adları
+  const CLASS_NAMES = {{ class_names | tojson }};
+  const RAW_CLASSES = {{ raw_classes | tojson }};
+
+  const fileInput  = document.getElementById('file-input');
+  const dropzone   = document.getElementById('dropzone');
+  const previewImg = document.getElementById('preview-img');
+  const previewEmpty = document.getElementById('preview-empty');
+  const predictBtn = document.getElementById('predict-btn');
+  const resetBtn   = document.getElementById('reset-btn');
+  const btnLabel   = document.getElementById('btn-label');
+  const errorBox   = document.getElementById('error-box');
+
+  let selectedFile = null;
+
+  // ----- Dosya seçimi -----
+  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+  // Drag & drop
+  ['dragenter','dragover'].forEach(ev =>
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('drag');
+    }));
+  ['dragleave','drop'].forEach(ev =>
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove('drag');
+    }));
+  dropzone.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      fileInput.files = e.dataTransfer.files;
+      handleFile(f);
+    }
+  });
+
+  function handleFile(file) {
+    hideError();
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showError('Lütfen bir görüntü dosyası seçin.');
+      return;
+    }
+    selectedFile = file;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewImg.style.display = 'block';
+    previewEmpty.style.display = 'none';
+    predictBtn.disabled = false;
+  }
+
+  // ----- Reset -----
+  resetBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    previewImg.src = '';
+    previewImg.style.display = 'none';
+    previewEmpty.style.display = 'block';
+    predictBtn.disabled = true;
+    document.getElementById('result-empty').style.display = 'block';
+    document.getElementById('result-body').style.display  = 'none';
+    hideError();
+  });
+
+  // ----- Tahmin -----
+  predictBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    hideError();
+    predictBtn.disabled = true;
+    btnLabel.innerHTML = '<span class="spinner"></span> İşleniyor...';
+
+    const fd = new FormData();
+    fd.append('image', selectedFile);
+
+    try {
+      const res  = await fetch('/predict', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Bilinmeyen sunucu hatası');
+      renderResult(data);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      predictBtn.disabled = false;
+      btnLabel.textContent = 'Tahmin Yap';
+    }
+  });
+
+  function renderResult(data) {
+    document.getElementById('result-empty').style.display = 'none';
+    document.getElementById('result-body').style.display  = 'block';
+
+    document.getElementById('r-class').textContent  = data.predicted_class;
+    document.getElementById('r-conf').textContent   = (data.confidence*100).toFixed(1) + '%';
+    document.getElementById('r-time').textContent   = data.inference_time_ms + ' ms';
+    document.getElementById('r-plabel').textContent = data.project_label;
+
+    // Bar chart
+    const bars = document.getElementById('bars');
+    bars.innerHTML = '';
+
+    // Olasılığa göre sırala (büyükten küçüğe)
+    const items = data.class_names
+      .map((n, i) => ({ name: n, prob: data.probabilities[i], idx: i }))
+      .sort((a, b) => b.prob - a.prob);
+
+    const winnerIdx = items[0].idx;
+
+    items.forEach((it, rank) => {
+      const row = document.createElement('div');
+      row.className = 'bar-row' + (it.idx === winnerIdx ? ' winner' : '');
+      row.innerHTML = `
+        <div class="bar-name">${it.name}</div>
+        <div class="bar-track"><div class="bar-fill"></div></div>
+        <div class="bar-pct">${(it.prob*100).toFixed(1)}%</div>
+      `;
+      bars.appendChild(row);
+      // Stagger animation
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          row.querySelector('.bar-fill').style.width = (it.prob*100) + '%';
+        }, rank * 60);
+      });
+    });
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+  }
+  function hideError() {
+    errorBox.style.display = 'none';
+    errorBox.textContent = '';
+  }
+
+  // ----- Health check (model yüklü mü?) -----
+  fetch('/health').then(r => r.json()).then(d => {
+    document.getElementById('status-text').textContent =
+      d.model_loaded ? `model · ${d.device}` : 'model · not loaded';
+  }).catch(() => {});
+</script>
+</body>
+</html>

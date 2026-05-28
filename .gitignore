@@ -1,0 +1,26 @@
+# Model ve büyük dosyalar
+saved_model/
+*.pt
+*.pth
+
+# Dataset
+dataset/
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Plots (opsiyonel - repoya eklemek istersen sil)
+plots/
+
+# OS
+.DS_Store
+Thumbs.db

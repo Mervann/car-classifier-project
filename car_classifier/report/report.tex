@@ -1,0 +1,324 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% IEEEtran sınıfı conference şablonudur; proje şartnamesinde IEEE formatı isteniyor.
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+% ============================================================
+\title{Derin Öğrenme Tabanlı Araba Gövde Tipi Sınıflandırma:\\
+MobileNetV3 ile Transfer Öğrenme Yaklaşımı}
+
+\author{
+\IEEEauthorblockN{Ad Soyad\textsuperscript{*}}
+\IEEEauthorblockA{
+\textit{Bilgisayar Mühendisliği}\\
+\textit{Kocaeli Üniversitesi}\\
+Kocaeli, Türkiye\\
+ogrenci.no@kocaeli.edu.tr}
+\and
+\IEEEauthorblockN{Ad Soyad}
+\IEEEauthorblockA{
+\textit{Bilgisayar Mühendisliği}\\
+\textit{Kocaeli Üniversitesi}\\
+Kocaeli, Türkiye\\
+ogrenci2.no@kocaeli.edu.tr}
+}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+Bu çalışmada, sekiz farklı araba gövde tipini (SUV, VAN, Station Wagon, Micro,
+Açık Tekerlekli, Sedan, Hatchback, Pick-Up) sınıflandıran derin öğrenme tabanlı
+bir görüntü işleme sistemi sunulmaktadır. Sistem, ImageNet üzerinde önceden
+eğitilmiş MobileNetV3-Large mimarisi üzerinde transfer öğrenme yaklaşımı ile
+geliştirilmiştir. Veri seti çeşitli açık kaynaklardan toplanmış, sınıf dengesi
+ve genelleme kapasitesini artırmak amacıyla veri çoğaltma teknikleri
+uygulanmıştır. Model, 224$\times$224 girişle eğitilmiş; en iyi modelimiz
+validation setinde \%XX doğruluk ve \%XX makro F1 skoru elde etmiştir.
+Eğitim sürecinde EarlyStopping, Cosine Annealing öğrenme oranı planlayıcısı ve
+sınıf dengesi için WeightedRandomSampler kullanılmıştır. Sistem, kullanıcıların
+canlı tahmin yapabileceği Flask tabanlı bir web arayüzüne entegre edilmiştir.
+\end{abstract}
+
+\begin{IEEEkeywords}
+araba sınıflandırma, derin öğrenme, transfer öğrenme, MobileNetV3,
+PyTorch, konvolüsyonel sinir ağı, görüntü işleme
+\end{IEEEkeywords}
+
+% ============================================================
+\section{Giriş}
+Otomotiv endüstrisinde görüntü tabanlı araç sınıflandırma; trafik gözetim
+sistemleri, otomatik park yönetimi, akıllı şehir uygulamaları ve ikinci el
+araç pazarındaki içerik kategorilendirme gibi pek çok alanda kullanılmaktadır.
+Bu görevin manuel yapılması maliyetli ve hatalara açıkken, derin öğrenme
+yöntemleri yüksek doğrulukla otomasyon sağlamaktadır.
+
+Bu çalışmada, görüntülerden sekiz farklı araba gövde tipinin doğru biçimde
+sınıflandırılması hedeflenmiştir. Çalışmanın temel katkıları şunlardır:
+\begin{itemize}
+  \item Sekiz sınıf için açık kaynaklardan derlenmiş özelleştirilmiş bir
+        veri setinin oluşturulması ve dengeli dağıtılması;
+  \item Transfer öğrenme yaklaşımıyla MobileNetV3-Large mimarisinin
+        problemin gereksinimlerine uyarlanması;
+  \item Eğitim sürecinde overfitting riskini azaltan veri çoğaltma,
+        label smoothing, weighted sampling ve early stopping tekniklerinin
+        bütünleşik kullanımı;
+  \item Kullanıcı dostu bir Flask web arayüzü ile canlı tahmin demosu.
+\end{itemize}
+
+% ============================================================
+\section{İlgili Çalışmalar}
+Görüntü sınıflandırma için ResNet \cite{resnet}, EfficientNet \cite{efficientnet},
+ConvNeXt \cite{convnext} ve Vision Transformer (ViT) \cite{vit} gibi pek çok
+derin mimari önerilmiştir. Mobil ve sınırlı kaynaklı cihazlarda çalışmak üzere
+MobileNet ailesi geliştirilmiş; MobileNetV3 \cite{mobilenetv3} özellikle
+NetAdapt arama algoritması ve Squeeze-and-Excitation \cite{senet} bloklarıyla
+hız--doğruluk dengesinde öne çıkmaktadır. Bu çalışmada hem proje şartnamesindeki
+95 MB model boyutu sınırı hem de arayüz tarafındaki tahmin hızı kriterleri
+nedeniyle MobileNetV3-Large mimarisi tercih edilmiştir.
+
+% ============================================================
+\section{Materyal ve Yöntem}
+
+\subsection{Veri Seti}
+Veri seti birden fazla açık kaynaktan
+(Kaggle\footnote{Cars Body Type Cropped ve Stanford Car Body Type Data
+veri setleri referans alındı.}, Wikimedia Commons, ücretsiz stok foto siteleri)
+manuel olarak derlenmiştir. Sınıf başına yaklaşık \textbf{XXX} görüntü
+toplanmış olup dağılım Tablo~\ref{tab:dataset}'de verilmiştir.
+
+\begin{table}[h]
+\caption{Veri seti dağılımı}
+\label{tab:dataset}
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Sınıf}   & \textbf{Train} & \textbf{Validation} \\
+\midrule
+SUV              & XXX  & XX  \\
+VAN              & XXX  & XX  \\
+Station Wagon    & XXX  & XX  \\
+Micro            & XXX  & XX  \\
+Açık Tekerlekli  & XXX  & XX  \\
+Sedan            & XXX  & XX  \\
+Hatchback        & XXX  & XX  \\
+Pick-Up          & XXX  & XX  \\
+\midrule
+\textbf{Toplam}  & \textbf{XXXX} & \textbf{XXX} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Veri seti \%85 eğitim, \%15 doğrulama olarak rastgele bölünmüş; tekrarlanabilirlik
+için sabit tohum (\texttt{seed=42}) kullanılmıştır. Test seti, proje gereği
+sunum sırasında ders ekibi tarafından sağlanacak yeni görüntülerden oluşacaktır.
+
+\subsection{Ön İşleme}
+Tüm görüntüler $256\times256$'ya yeniden boyutlandırılmış, ardından merkezden
+$224\times224$ kırpılmış ve ImageNet istatistikleriyle normalize edilmiştir:
+\[\mu = (0.485,\,0.456,\,0.406),\quad \sigma = (0.229,\,0.224,\,0.225).\]
+
+\subsection{Veri Çoğaltma (Data Augmentation)}
+Eğitim sırasında genelleme yeteneğini artırmak için şu dönüşümler stokastik
+biçimde uygulanmıştır:
+\begin{itemize}
+  \item \textbf{RandomResizedCrop}: $[0.75,1.0]$ ölçek aralığında rastgele kırpma;
+  \item \textbf{RandomHorizontalFlip}: $p=0.5$ olasılıkla yatay yansıtma;
+  \item \textbf{ColorJitter}: parlaklık, kontrast, doygunluk $\pm 0.2$, ton $\pm 0.05$;
+  \item \textbf{RandomRotation}: $\pm 10^{\circ}$;
+  \item \textbf{RandomErasing}: $p=0.25$ olasılıkla rastgele bölge silme
+        (oklüzyona dayanıklılık).
+\end{itemize}
+
+\subsection{Model Mimarisi}
+ImageNet üzerinde önceden eğitilmiş MobileNetV3-Large omurgası kullanılmıştır.
+Orijinal sınıflandırıcı başı, 8 sınıflı problemimize uyarlamak için
+yeniden tasarlanmıştır:
+\begin{equation}
+\mathrm{Linear}(960\!\to\!1280)\;\to\;\mathrm{Hardswish}\;\to\;
+\mathrm{Dropout}(0.3)\;\to\;\mathrm{Linear}(1280\!\to\!8).
+\end{equation}
+Modelin toplam parametre sayısı yaklaşık 4.2 M, kaydedilen \texttt{.pt} dosya
+boyutu $\approx$ 17 MB olup proje şartnamesinin 95 MB sınırının çok altındadır.
+
+\subsection{Eğitim Konfigürasyonu}
+Tablo~\ref{tab:hyper} eğitimde kullanılan tüm hiperparametreleri özetler.
+\begin{table}[h]
+\caption{Hiperparametreler}
+\label{tab:hyper}
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Parametre} & \textbf{Değer} \\
+\midrule
+Optimizer            & AdamW \\
+Backbone LR          & $1\times 10^{-4}$ \\
+Classifier head LR   & $1\times 10^{-3}$ \\
+Weight decay         & $1\times 10^{-4}$ \\
+Scheduler            & Cosine Annealing \\
+Batch size           & 32 \\
+Epochs               & 40 (Early Stopping, patience=7) \\
+Loss                 & CrossEntropy + Label Smoothing (0.05) \\
+Class balancing      & WeightedRandomSampler \\
+Mixed precision      & Etkin (AMP) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sınıf dengesizliğini azaltmak için WeightedRandomSampler ile her sınıftan
+örneklenme olasılığı eşitlenmiş; label smoothing ile modelin aşırı güvenli
+softmax çıkışları cezalandırılmıştır.
+
+% ============================================================
+\section{Deneysel Sonuçlar}
+
+\subsection{Eğitim Süreci}
+Şekil~\ref{fig:loss}'de eğitim ve doğrulama kayıp eğrileri,
+Şekil~\ref{fig:acc}'de doğruluk eğrileri gösterilmektedir. Eğitim kaybı ile
+doğrulama kaybı arasındaki farkın küçük tutulması, modelin aşırı uyum
+göstermediğine işaret eder.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{plots/loss_curve.png}
+\caption{Training \& Validation Loss eğrisi.}
+\label{fig:loss}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{plots/accuracy_curve.png}
+\caption{Training \& Validation Accuracy eğrisi.}
+\label{fig:acc}
+\end{figure}
+
+\subsection{Metrikler}
+Tablo~\ref{tab:metrics}'de sınıf bazlı Precision, Recall ve F1-Score değerleri;
+ortalama (macro ve weighted) skorlar ile birlikte sunulmuştur.
+
+\begin{table}[h]
+\caption{Sınıf bazlı performans metrikleri}
+\label{tab:metrics}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Sınıf}   & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\
+\midrule
+SUV              & 0.XX & 0.XX & 0.XX \\
+VAN              & 0.XX & 0.XX & 0.XX \\
+Station Wagon    & 0.XX & 0.XX & 0.XX \\
+Micro            & 0.XX & 0.XX & 0.XX \\
+Açık Tekerlekli  & 0.XX & 0.XX & 0.XX \\
+Sedan            & 0.XX & 0.XX & 0.XX \\
+Hatchback        & 0.XX & 0.XX & 0.XX \\
+Pick-Up          & 0.XX & 0.XX & 0.XX \\
+\midrule
+\textbf{Macro avg}    & 0.XX & 0.XX & 0.XX \\
+\textbf{Weighted avg} & 0.XX & 0.XX & 0.XX \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Confusion Matrix}
+Normalize edilmiş 8$\times$8 karışıklık matrisi
+Şekil~\ref{fig:cm}'de gösterilmektedir. Diyagonal değerlerin yüksekliği
+modelin doğru sınıflandırma başarısını yansıtır. Off-diagonal hücrelerdeki
+yoğunlaşmalar, hangi sınıflar arasında karışıklık yaşandığını ortaya koyar
+(örneğin Sedan--Hatchback geçişleri gibi görsel olarak benzer sınıflar).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{plots/confusion_matrix.png}
+\caption{Normalize edilmiş Confusion Matrix.}
+\label{fig:cm}
+\end{figure}
+
+\subsection{Çıkarım Süresi}
+Modelin tek görüntü üzerindeki ortalama çıkarım süresi
+\textbf{XX ms} (CPU) / \textbf{X ms} (GPU) ölçülmüştür; web arayüzünden
+yapılan tahminlerde kullanıcı bekleme süresi 100 ms'nin altında kalmaktadır.
+
+% ============================================================
+\section{Web Arayüzü}
+Eğitilmiş model, Flask tabanlı bir web uygulamasına entegre edilmiştir.
+Arayüz şu bileşenleri içerir: (i) sürükle-bırak veya tıklayarak dosya yükleme,
+(ii) yüklenen görselin canlı önizlemesi, (iii) tahmin edilen sınıfın güven
+skoru ile büyük ve belirgin gösterimi, (iv) tüm sınıflar için olasılık
+dağılımının yatay bar chart olarak animasyonlu sunumu ve
+(v) çıkarım süresinin milisaniye cinsinden gösterimi. Tahmin sonuçları,
+yüklenen orijinal görüntü ile yan yana düzende sergilenir.
+
+% ============================================================
+\section{Sonuç ve Gelecek Çalışmalar}
+Bu çalışmada, transfer öğrenme yaklaşımıyla MobileNetV3-Large mimarisi
+kullanılarak 8 araba gövde tipini sınıflandıran kompakt ($\approx$ 17 MB) ve
+hızlı bir model geliştirilmiştir. Veri çoğaltma, label smoothing,
+sınıf-dengeli örnekleme ve EarlyStopping teknikleri sayesinde modelin
+genelleme kapasitesi artırılmıştır. Web arayüzü ile sistem son kullanıcıya
+canlı tahmin imkânı sunmaktadır.
+
+Gelecek çalışmalarda; veri seti boyutunun artırılması, daha güçlü
+augmentation stratejileri (MixUp, CutMix), test zamanı augmentation (TTA)
+ve Vision Transformer tabanlı modellerin karşılaştırılması planlanmaktadır.
+
+% ============================================================
+\begin{thebibliography}{00}
+\bibitem{resnet}
+K. He, X. Zhang, S. Ren, J. Sun,
+``Deep Residual Learning for Image Recognition,''
+\textit{CVPR}, 2016.
+
+\bibitem{efficientnet}
+M. Tan, Q. V. Le,
+``EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks,''
+\textit{ICML}, 2019.
+
+\bibitem{convnext}
+Z. Liu et al.,
+``A ConvNet for the 2020s,''
+\textit{CVPR}, 2022.
+
+\bibitem{vit}
+A. Dosovitskiy et al.,
+``An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale,''
+\textit{ICLR}, 2021.
+
+\bibitem{mobilenetv3}
+A. Howard et al.,
+``Searching for MobileNetV3,''
+\textit{ICCV}, 2019.
+
+\bibitem{senet}
+J. Hu, L. Shen, G. Sun,
+``Squeeze-and-Excitation Networks,''
+\textit{CVPR}, 2018.
+
+\bibitem{pytorch}
+A. Paszke et al.,
+``PyTorch: An Imperative Style, High-Performance Deep Learning Library,''
+\textit{NeurIPS}, 2019.
+
+\bibitem{adamw}
+I. Loshchilov, F. Hutter,
+``Decoupled Weight Decay Regularization,''
+\textit{ICLR}, 2019.
+\end{thebibliography}
+
+\end{document}
