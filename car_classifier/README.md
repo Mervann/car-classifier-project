@@ -27,12 +27,20 @@
 ## 🚀 Kurulum
 
 ```bash
-# 1) Sanal ortam
+# 1) Repo'yu klonla
+git clone https://github.com/Mervann/car-classifier-project
+cd car-classifier-project/car_classifier
+
+# 2) Sanal ortam
 python -m venv venv
 source venv/bin/activate            # Windows: venv\Scripts\activate
 
-# 2) Bağımlılıklar
+# 3) Bağımlılıklar
 pip install -r requirements.txt
+
+# 4) Modeli indir (GitHub Releases)
+# https://github.com/Mervann/car-classifier-project/releases/tag/v1.0
+# car_body_classifier.pt dosyasını saved_model/ klasörüne koy
 ```
 
 GPU'nuz varsa kuruluma uygun CUDA destekli PyTorch sürümünü [pytorch.org](https://pytorch.org/get-started/locally/) sayfasından yükleyin.
