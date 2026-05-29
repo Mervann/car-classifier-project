@@ -4,13 +4,11 @@
 ============================================================
  Hocaların Test.txt scripti şu formatta dosya bekliyor:
 
-     <dosya_adi> | predict:<sayi>
-     image1.jpg | predict:6
-     image2.jpg | predict:1
+     image1.jpg | Pred: 6
+     image2.jpg | Pred: 1
 
- ve sınıf etiketleri:
-     1=SUV, 2=VAN, 3=STATION_WAGON, 4=MICRO,
-     5=F1 (AÇIK TEKERLEKLİ), 6=SEDAN, 7=HATCHBACK, 8=PICKUP
+ Test klasörü yapısı:
+     testdata/1/...  testdata/2/...  ...  testdata/8/...
 
  Kullanım:
      python predict.py --test_dir <test_klasoru>  --out preds.txt
@@ -79,8 +77,12 @@ def main(test_dir: str, ckpt_path: str, out_file: str):
     idx_to_label = {int(k): int(v) for k, v in idx_to_label.items()}
 
     test_dir = Path(test_dir)
-    img_paths = sorted(p for p in test_dir.iterdir()
-                       if p.suffix.lower() in IMG_EXTS)
+
+    # Test verisi hem düz klasör hem de sayısal alt klasörler (1-8) desteklenir
+    img_paths = []
+    for entry in sorted(test_dir.rglob("*")):
+        if entry.is_file() and entry.suffix.lower() in IMG_EXTS:
+            img_paths.append(entry)
 
     if not img_paths:
         print(f"[UYARI] {test_dir} içinde görüntü bulunamadı.")
@@ -90,8 +92,9 @@ def main(test_dir: str, ckpt_path: str, out_file: str):
     for p in img_paths:
         try:
             label, conf, _ = predict_single(p, model, tf, idx_to_label, device)
-            lines.append(f"{p.name} | predict:{label}")
-            print(f"  {p.name:40s} -> predict:{label}  (conf={conf:.3f})")
+            line = f"{p.name} | Pred: {label} "
+            lines.append(line)
+            print(f"  {p.name:40s} -> Pred: {label}  (conf={conf:.3f})")
         except Exception as e:
             print(f"[HATA] {p.name}: {e}")
 

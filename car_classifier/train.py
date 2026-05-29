@@ -17,6 +17,7 @@ import json
 import time
 import copy
 import random
+import winsound
 from pathlib import Path
 
 import numpy as np
@@ -39,14 +40,14 @@ CONFIG = {
     "plot_dir":      "plots",
     "img_size":      224,               # MobileNetV3'ün doğal girişi
     "batch_size":    32,
-    "epochs":        40,
+    "epochs":        20,
     "lr_head":       1e-3,              # Sınıflandırıcı başı LR'si
     "lr_backbone":   1e-4,              # Önceden eğitilmiş gövde için daha düşük
-    "weight_decay":  1e-4,
-    "dropout":       0.3,
+    "weight_decay":  4e-4,
+    "dropout":       0.5,
     "val_split":     0.15,              # %15 validation, %85 train
-    "patience":      7,                 # EarlyStopping sabır değeri
-    "label_smooth":  0.05,              # Aşırı güveni hafifletir
+    "patience":      10,                # EarlyStopping sabır değeri
+    "label_smooth":  0.1,               # Aşırı güveni hafifletir
     "num_workers":   4,
     "seed":          42,
     "use_amp":       True,              # Mixed precision -> daha hızlı + az VRAM
@@ -58,6 +59,18 @@ CONFIG = {
 CLASS_TO_LABEL = {
     "SUV": 1, "VAN": 2, "STATION_WAGON": 3, "MICRO": 4,
     "F1":  5, "SEDAN": 6, "HATCHBACK": 7, "PICKUP": 8,
+}
+
+# CrossEntropyLoss class weights — düşük F1'li sınıflara daha yüksek ceza
+LABEL_WEIGHTS = {
+    1: 2.0,   # SUV           F1=0.77
+    2: 1.0,   # VAN           F1=0.92
+    3: 2.0,   # STATION_WAGON F1=0.59 (Sedan ile karışıyor)
+    4: 1.5,   # MICRO         F1=0.82
+    5: 1.0,   # F1            F1=0.99
+    6: 1.5,   # SEDAN         F1=0.72 (Hatchback ile karışıyor)
+    7: 2.0,   # HATCHBACK     F1=0.61
+    8: 2.0,   # PICKUP        F1=0.59
 }
 
 
@@ -89,19 +102,16 @@ def build_transforms(img_size: int):
     resize+normalize yapılır.
     """
     train_tf = transforms.Compose([
-        # Random crop+resize: farklı framing ve scale'lere dayanıklılık
-        transforms.RandomResizedCrop(img_size, scale=(0.75, 1.0)),
-        # Yatay flip: arabalar simetrik değildir ama sınıf değişmez
+        transforms.RandomResizedCrop(img_size, scale=(0.65, 1.0)),
         transforms.RandomHorizontalFlip(p=0.5),
-        # Renk varyasyonu: farklı ışık koşullarına genelleme
-        transforms.ColorJitter(brightness=0.2, contrast=0.2,
-                               saturation=0.2, hue=0.05),
-        # Hafif rotasyon: kameranın eğikliğine karşı
-        transforms.RandomRotation(degrees=10),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3,
+                               saturation=0.3, hue=0.08),
+        transforms.RandomRotation(degrees=15),
+        transforms.RandomPerspective(distortion_scale=0.3, p=0.4),
+        transforms.RandomGrayscale(p=0.05),
         transforms.ToTensor(),
         transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-        # RandomErasing: arabanın bir kısmı kapalıysa bile sınıfı bulmayı öğret
-        transforms.RandomErasing(p=0.25, scale=(0.02, 0.15)),
+        transforms.RandomErasing(p=0.4, scale=(0.02, 0.2)),
     ])
 
     eval_tf = transforms.Compose([
@@ -293,8 +303,12 @@ def train_model(cfg):
     # --- Scheduler: cosine annealing -> sonlara doğru daha küçük adım ---
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"])
 
-    # --- Loss: label smoothing ile aşırı güven cezalandırılır ---
-    criterion = nn.CrossEntropyLoss(label_smoothing=cfg["label_smooth"])
+    # --- Loss: class weights ile az örnekli/zor sınıflar ağırlıklandırılır ---
+    class_weights = torch.tensor(
+        [LABEL_WEIGHTS[CLASS_TO_LABEL[fc]] for fc in folder_classes],
+        dtype=torch.float32, device=device
+    )
+    criterion = nn.CrossEntropyLoss(weight=class_weights, label_smoothing=cfg["label_smooth"])
 
     # --- AMP scaler ---
     scaler = torch.cuda.amp.GradScaler() if (cfg["use_amp"] and device.type == "cuda") else None
@@ -331,6 +345,7 @@ def train_model(cfg):
               f"lr={optimizer.param_groups[0]['lr']:.2e} "
               f"({time.time()-t0:.1f}s)"
               + ("  *best*" if improved else ""))
+        winsound.Beep(1000, 400)
 
         if stopper.stop:
             print(f"[INFO] EarlyStopping: {cfg['patience']} epoch boyunca "
